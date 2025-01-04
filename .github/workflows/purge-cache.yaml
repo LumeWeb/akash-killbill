@@ -1,0 +1,48 @@
+name: Purge Build Caches
+
+on:
+  workflow_dispatch:
+
+env:
+  GO_VERSION: '1.22'
+
+jobs:
+  purge-cache:
+    runs-on: ubuntu-latest
+    permissions:
+      actions: write
+      contents: read
+    steps:
+      - name: Get cache keys
+        id: get-keys
+        run: |
+          echo "caddy_key=caddy-${{ runner.os }}-${GO_VERSION}-${{ hashFiles('**/go.sum') || 'no-deps' }}-2.9" >> $GITHUB_OUTPUT
+          echo "xcaddy_key=${{ runner.os }}-xcaddy-v0.4.4-${GO_VERSION}" >> $GITHUB_OUTPUT
+          echo "go_key=${{ runner.os }}-go-${GO_VERSION}" >> $GITHUB_OUTPUT
+
+      - name: Delete caches
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          delete_cache() {
+            local cache_key=$1
+            echo "Attempting to delete cache with key: $cache_key"
+            
+            CACHE_ID=$(gh api -H "Accept: application/vnd.github+json" \
+              "/repos/${{ github.repository }}/actions/caches" \
+              --jq ".actions_caches[] | select(.key == \"$cache_key\") | .id")
+            
+            if [ -n "$CACHE_ID" ]; then
+              echo "Found cache with ID: $CACHE_ID"
+              gh api --method DELETE \
+                -H "Accept: application/vnd.github+json" \
+                "/repos/${{ github.repository }}/actions/caches/$CACHE_ID"
+              echo "Cache deleted successfully"
+            else
+              echo "No cache found with key: $cache_key"
+            fi
+          }
+
+          delete_cache "${{ steps.get-keys.outputs.caddy_key }}"
+          delete_cache "${{ steps.get-keys.outputs.xcaddy_key }}"
+          delete_cache "${{ steps.get-keys.outputs.go_key }}"

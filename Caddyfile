@@ -1,0 +1,17 @@
+{
+    admin off
+    email {$CADDY_EMAIL}
+    storage s3 {
+        bucket {$CADDY_S3_BUCKET}
+        host {$CADDY_S3_ENDPOINT}
+        access_key {$CADDY_S3_ACCESS_KEY}
+        secret_key {$CADDY_S3_SECRET_KEY}
+    }
+}
+
+:80, :443 {
+    tls {
+        issuer acme
+    }
+    reverse_proxy localhost:8080
+}
